@@ -1,0 +1,70 @@
+name: Detect Accessibility Lint Disables
+on: [pull_request_target]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  default_branch_count:
+    name: Count default branch lint disables
+    runs-on: ubuntu-latest
+    outputs:
+      count: ${{ steps.set_default_skip_count.outputs.default_branch_skips }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: main
+      - name: Sets default lint disable value
+        id: set_default_skip_count
+        run: echo "default_branch_skips=$(git grep 'erblint:counter GitHub::Accessibility::\|eslint-disable-next-line jsx-a11y\|eslint-disable-next-line github\/a11y\|eslint-disable jsx-a11y\|eslint-disable github\/a11y\|rubocop:disable RailsAccessibility' | wc -l | xargs echo -n)" >> $GITHUB_OUTPUT
+  pr_branch_count:
+    name: Count PR branch lint disables
+    runs-on: ubuntu-latest
+    outputs:
+      count: ${{ steps.set_pr_skip_count.outputs.pr_skips }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Sets PR lint disable value
+        id: set_pr_skip_count
+        run: echo "pr_skips=$(git grep 'erblint:counter GitHub::Accessibility::\|eslint-disable-next-line jsx-a11y\|eslint-disable-next-line github\/a11y\|eslint-disable jsx-a11y\|eslint-disable github\/a11y\|rubocop:disable RailsAccessibility' | wc -l | xargs echo -n)" >> $GITHUB_OUTPUT
+  compare_counts:
+    name: Compare disable counts
+    runs-on: ubuntu-latest
+    needs: [default_branch_count, pr_branch_count]
+    steps:
+      - run: |
+          echo "${{needs.default_branch_count.outputs.count}}"
+          echo "${{needs.pr_branch_count.outputs.count}}"
+      - if: ${{ needs.pr_branch_count.outputs.count != needs.default_branch_count.outputs.count }}
+        uses: actions/github-script@v5
+        with:
+          script: |
+            try {
+              if (context.payload.pull_request.number != null) {
+                const commentBody = 'This PR disables an accessibility linting rule; tagging @lindseywild for review.'
+                // Get existing PR comments
+                const comments = await github.rest.issues.listComments({
+                  owner: context.payload.repository.owner.login,
+                  repo: context.payload.repository.name,
+                  issue_number: context.payload.pull_request.number,
+                })
+
+                // Check if a comment already exists, if so, don't leave another comment
+                if (comments.data.length && comments.data.some(item => item.body === commentBody)) {
+                  return
+                } else {
+                  await github.rest.issues.createComment({
+                    owner: context.payload.repository.owner.login,
+                    repo: context.payload.repository.name,
+                    issue_number: context.payload.pull_request.number,
+                    body: commentBody
+                  });
+                }
+              }
+            } catch (error) {
+              core.setFailed(error.message)
+            }
