@@ -39,7 +39,7 @@ jobs:
       - run: |
           echo "${{needs.default_branch_count.outputs.count}}"
           echo "${{needs.pr_branch_count.outputs.count}}"
-      - if: ${{ needs.pr_branch_count.outputs.count != needs.default_branch_count.outputs.count }}
+      - if: ${{ needs.pr_branch_count.outputs.count > needs.default_branch_count.outputs.count }}
         uses: actions/github-script@v5
         with:
           script: |
