@@ -1,58 +1,55 @@
-name: Detect Accessibility Lint Disables
-on: [pull_request_target]
+name: Detect new a11y lint disables
 
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
+on:
+  pull_request:
+    paths:
+      - '**.tsx'
+      - '**.ts'
+      - '**.js'
+      - '**.jsx'
+      - '**.rb'
+      - '**.erb'
 
 jobs:
-  default_branch_count:
-    name: Count default branch lint disables
+  gets_disables:
+    name: Gets newly added disables
     runs-on: ubuntu-latest
     outputs:
-      count: ${{ steps.set_default_skip_count.outputs.default_branch_skips }}
+      count: ${{ steps.set_new_disable_count.outputs.new_disables }}
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: main
-      - name: Sets default lint disable value
-        id: set_default_skip_count
-        run: echo "default_branch_skips=$(git grep 'erblint:counter GitHub::Accessibility::\|eslint-disable-next-line jsx-a11y\|eslint-disable-next-line github\/a11y\|eslint-disable jsx-a11y\|eslint-disable github\/a11y\|rubocop:disable RailsAccessibility' | wc -l | xargs echo -n)" >> $GITHUB_OUTPUT
-  pr_branch_count:
-    name: Count PR branch lint disables
+          fetch-depth: 2
+      - name: Set new disable count
+        id: set_new_disable_count
+        run: |
+          echo "new_disables=$(git diff HEAD^1..HEAD^2 | egrep "^\+" | grep 'erblint:counter GitHub::Accessibility::\|eslint-disable-next-line jsx-a11y\|eslint-disable-next-line github\/a11y\|eslint-disable jsx-a11y\|eslint-disable github\/a11y\|rubocop:disable RailsAccessibility' | wc -l)" >> $GITHUB_OUTPUT
+  leave_comment:
+    name: Determine if comment should be left
     runs-on: ubuntu-latest
-    outputs:
-      count: ${{ steps.set_pr_skip_count.outputs.pr_skips }}
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Sets PR lint disable value
-        id: set_pr_skip_count
-        run: echo "pr_skips=$(git grep 'erblint:counter GitHub::Accessibility::\|eslint-disable-next-line jsx-a11y\|eslint-disable-next-line github\/a11y\|eslint-disable jsx-a11y\|eslint-disable github\/a11y\|rubocop:disable RailsAccessibility' | wc -l | xargs echo -n)" >> $GITHUB_OUTPUT
-  compare_counts:
-    name: Compare disable counts
-    runs-on: ubuntu-latest
-    needs: [default_branch_count, pr_branch_count]
+    needs: gets_disables
     steps:
       - run: |
-          echo "${{needs.default_branch_count.outputs.count}}"
-          echo "${{needs.pr_branch_count.outputs.count}}"
-      - if: ${{ needs.pr_branch_count.outputs.count > needs.default_branch_count.outputs.count }}
+          echo "New disables: ${{needs.gets_disables.outputs.count}}"
+      - if: ${{ needs.gets_disables.outputs.count > 0 }}
         uses: actions/github-script@v5
         with:
           script: |
             try {
               if (context.payload.pull_request.number != null) {
-                const commentBody = 'This PR disables an accessibility linting rule; tagging @lindseywild for review.'
-                // Get existing PR comments
+                const commentBody = `${context.payload.pull_request.html_url} allegedly disables accessibility linting rule(s).`
+                // Uncomment following line and delete previous line once testing is complete
+                // const commentBody = "This PR disables an accessibility linting rule. Tagging @github/accessibility-reviewers for review"
+
+                // Get existing comments
                 const comments = await github.rest.issues.listComments({
                   owner: context.payload.repository.owner.login,
                   repo: context.payload.repository.name,
-                  issue_number: context.payload.pull_request.number,
+                  issue_number: 19,
+                  // uncomment following line and delete previous line once this has been thoroughly tested
+                  // issue_number: context.payload.pull_request.number,
                 })
-
+                
                 // Check if a comment already exists, if so, don't leave another comment
                 if (comments.data.length && comments.data.some(item => item.body === commentBody)) {
                   return
@@ -60,11 +57,14 @@ jobs:
                   await github.rest.issues.createComment({
                     owner: context.payload.repository.owner.login,
                     repo: context.payload.repository.name,
-                    issue_number: context.payload.pull_request.number,
+                    issue_number: 19,
+                    // uncomment following line and delete previous line once this has been thoroughly tested
+                    // issue_number: context.payload.pull_request.number,
                     body: commentBody
-                  });
+                  })
                 }
               }
             } catch (error) {
               core.setFailed(error.message)
             }
+    
