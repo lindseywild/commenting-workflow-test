@@ -1,4 +1,4 @@
-name: Detect new a11y lint disables
+name: Detect new a11y lint disablesssssss
 
 on:
   pull_request:
