@@ -28,7 +28,7 @@ jobs:
       - name: Set new disable count
         id: set_new_disable_count
         run: |
-          echo "new_disables=$(git diff HEAD^1..HEAD^2 | egrep "^\+" | grep 'erblint:counter GitHub::Accessibility::\|eslint-disable-next-line jsx-a11y\|eslint-disable-next-line github\/a11y\|eslint-disable jsx-a11y\|eslint-disable github\/a11y\|rubocop:disable RailsAccessibility' | wc -l)" >> $GITHUB_OUTPUT
+          echo "new_disables=$(git diff HEAD^1...HEAD^2 | egrep "^\+" | grep 'erblint:counter GitHub::Accessibility::\|eslint-disable-next-line jsx-a11y\|eslint-disable-next-line github\/a11y\|eslint-disable jsx-a11y\|eslint-disable github\/a11y\|rubocop:disable RailsAccessibility' | wc -l)" >> $GITHUB_OUTPUT
   leave_comment:
     name: Determine if comment should be left
     runs-on: ubuntu-latest
