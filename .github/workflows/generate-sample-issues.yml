@@ -1,0 +1,35 @@
+name: Generate Issue for Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      handle:
+        description: 'Handle of user to get issues for'
+        required: true
+      auditLabel:
+        description: 'Audit label (optional)'
+
+permissions:
+  contents: read
+  issues: write
+  actions: write
+  repository-projects: write
+
+jobs:
+  generate_issues_for_verification:
+    name: 'Generate Issue for Verification'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get private action 'github/a11y-champions-verification-workflows'
+        uses: actions/checkout@v3
+        with:
+          repository: github/a11y-champions-verification-workflows
+          # token: ${{ secrets.GH_TOKEN }}
+          path: ./.github/actions/github/a11y-champions-verification-workflows
+      - name: Gets sample issues to verify and opens issue
+        uses: ./.github/actions/github/a11y-champions-verification-workflows
+        with:
+          handle: ${{ github.event.inputs.handle }}
+          auditLabel: ${{ github.event.inputs.auditLabel }}
+        # env:
+        #   GH_TOKEN: ${{ secrets.GH_TOKEN }}
